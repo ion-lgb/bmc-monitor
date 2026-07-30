@@ -72,6 +72,25 @@ services:
       retries: 3
       start_period: 10s
 
+  # ESXi 监控(可选)。通过 SNMP v3 采集 ESXi 主机,用 prometheus_client 输出,
+  # 由上面的 Prometheus 直接抓 —— 不需要 InfluxDB。
+  # 前提:ESXi 上要先启用 SNMP,见 telegraf/setup_snmp.py。
+  telegraf:
+    image: telegraf:1.32
+    container_name: telegraf
+    restart: unless-stopped
+    environment:
+      - ESXI_HOST=${ESXI_HOST}
+      - SNMP_USER=${SNMP_USER}
+      - SNMP_AUTH_PASS=${SNMP_AUTH_PASS}
+      - SNMP_PRIV_PASS=${SNMP_PRIV_PASS}
+    volumes:
+      - ./telegraf/esxi.conf:/etc/telegraf/telegraf.conf:ro
+    ports:
+      - "9273:9273"
+    networks:
+      - monitoring
+
   grafana:
     image: grafana/grafana:13.1.1
     container_name: grafana

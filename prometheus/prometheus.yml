@@ -38,3 +38,9 @@ scrape_configs:
       # Prometheus(否则每次改配置、标签值一变,就会跟旧数据断成两条序列)。
       - action: labeldrop
         regex: bmc_module
+
+  # ESXi(Telegraf 经 SNMP 采集后用 prometheus_client 暴露)。
+  # 目标是 Telegraf 自己,不是 ESXi —— Telegraf 才是那个说 Prometheus 语言的进程。
+  - job_name: esxi
+    static_configs:
+      - targets: ["telegraf:9273"]

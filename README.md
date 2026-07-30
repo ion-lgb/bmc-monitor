@@ -34,6 +34,14 @@
 
 ![单机详情](docs/detail.png)
 
+### ESXi 主机(可选)
+
+如果机器上跑的是 VMware ESXi,可以额外用 Telegraf 通过 SNMP 采集虚拟化层:
+CPU/内存/数据存储用量、网卡吞吐、HBA、以及每台虚拟机的 CPU/内存/开关机状态。
+和 BMC 监控互补 —— 一个看硬件,一个看虚拟化层。
+
+![ESXi](docs/esxi.png)
+
 ---
 
 ## 这是什么
@@ -145,6 +153,38 @@ Grafana 默认开了**匿名只读**:同事点开链接**不用登录**就能看
 
 带内和带外是互补的,不是替代关系。
 
+## ESXi 监控(可选)
+
+采集链路:`Telegraf --SNMP v3--> ESXi`,Telegraf 用 `prometheus_client` 暴露 `/metrics`,
+由本项目现有的 Prometheus 直接抓 —— **不需要 InfluxDB**。
+配置基于 [marjan-mesgarani/Telegraf-Config-Files](https://github.com/marjan-mesgarani/Telegraf-Config-Files/tree/main/ESXi%20Hypervisor),
+看板是 [Grafana 18839](https://grafana.com/grafana/dashboards/18839)(已内置,做了两处改造见下)。
+
+**1. 在 ESXi 上启用 SNMP v3**(默认是关的)。先在 `.env` 里填好 `ESXI_HOST` 和三个 SNMP 变量,然后:
+
+```bash
+docker run --rm --network host \
+  -v "$PWD/telegraf/setup_snmp.py:/setup.py:ro" --env-file .env \
+  -e ESXI_PW='<你的 ESXi root 密码>' \
+  python:3.12-slim sh -c 'pip install -q paramiko && python /setup.py'
+```
+
+脚本只做加法:建一个专用的只读 SNMP v3 用户(SHA1 + AES128)并放行 161 端口。
+回滚:`esxcli system snmp set --enable false`。
+
+**2. 起 Telegraf**:`docker compose up -d telegraf`,然后 Grafana 里打开「ESXi 主机 (SNMP)」。
+
+### 踩过的两个坑
+
+- **上游配置只给 `hr_processor` 加了 `index_as_tag = true`,其余表都漏了。** SNMP 表的每行必须有唯一标识,否则同一张表所有行的 tag 完全相同,在 Prometheus 输出时互相覆盖 —— 实测 5 台虚拟机只出 1 条、9 个数据存储只出 1 条。本项目的配置给 `if_nic`/`ifx_nic`/`hr_storage`/`vmw_hba`/`vmw_vm` 都补上了。
+- **输出必须用 `metric_version = 1`。** 看板靠 `storage_desc="Real Memory"`、`vm_state="powered on"` 这类 **label** 过滤,而这些在 SNMP 里是字符串字段;`metric_version = 1` 会把字符串字段转成 label,换成 `2` 会直接丢掉,看板大面积没数据。
+- 看板原本把 `agent_host="ESXI.test.com"` **写死**在每条查询里,本项目已改成 `$esxi_host` 变量 + 下拉框。
+
+### ESXi SNMP 读不到的东西
+
+- **虚拟机的客户机操作系统需要装并运行 VMware Tools。** 没装的会报 `E: tools not installed`,看板里的 Windows/Linux 分类就统计不到它。
+- SNMP 给的是**容量和状态**,不是性能明细。要单台虚拟机的 CPU ready、磁盘延迟这类,得换 Telegraf 的 `inputs.vsphere`(走 vSphere API,用 root 账号)。
+
 ## 安全性
 
 这套东西默认是**内网信任模型**,请不要直接暴露到公网:
@@ -155,7 +195,8 @@ Grafana 默认开了**匿名只读**:同事点开链接**不用登录**就能看
   **只把 3000 端口对外,8080/9090 务必限制在内网。**
 - Prometheus 开了 `--web.enable-admin-api`(为了实现"删除即清空历史"),这个接口能删任意历史数据,同样没有认证。
 - **BMC 密码在 `ipmi.yml` 里是明文** —— 这是 ipmi_exporter 的限制,它不支持从单独的文件读密码。程序会把这个文件的权限收紧到 `0600` 并 chown 给 exporter 的 uid(65534),宿主机上其他用户读不到;但 root 和容器内仍然能读。
-- `.env`、`ipmi.yml`、`bmc-targets.json` 都已在 `.gitignore` 里,**不要把它们提交上来**。
+- `.env`、`ipmi.yml`、`bmc-targets.json`、`.snmp-creds` 都已在 `.gitignore` 里,**不要把它们提交上来**。
+- ESXi 的 SNMP v3 用的是**独立生成的随机密码**,不复用 ESXi root 密码;SNMP v3 全程加密(SHA1 认证 + AES128 加密)。
 
 如果需要暴露到更大的范围,至少加一层反向代理 + 认证。
 
