@@ -5,35 +5,105 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BMC 服务器管理</title>
 <style>
-  body { font-family: -apple-system, "Segoe UI", sans-serif; background: #1e1e1e; color: #e0e0e0; max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
-  h1 { font-size: 1.4rem; }
-  h2 { font-size: 1.1rem; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #444; font-size: 0.9rem; }
-  .status-up { color: #4caf50; font-weight: bold; }
-  .status-down { color: #f44336; font-weight: bold; }
-  .status-unknown { color: #999; }
-  form.card { background: #2a2a2a; padding: 1.2rem; border-radius: 8px; }
-  label { display: block; margin: 0.6rem 0 0.2rem; font-size: 0.9rem; }
-  input[type=text], input[type=password], select { width: 100%; padding: 0.4rem; box-sizing: border-box; background: #1e1e1e; border: 1px solid #555; color: #e0e0e0; border-radius: 4px; }
-  input[readonly] { opacity: 0.6; }
-  .row { display: flex; gap: 1rem; flex-wrap: wrap; }
-  .row > div { flex: 1; min-width: 180px; }
-  details { margin-top: 0.8rem; }
-  summary { cursor: pointer; color: #9cc; }
-  .collectors label { display: inline-block; margin-right: 1rem; font-weight: normal; }
-  button { margin-top: 1rem; padding: 0.5rem 1.2rem; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; }
-  a.btn, button.small { margin: 0; padding: 0.2rem 0.6rem; font-size: 0.8rem; border-radius: 4px; text-decoration: none; display: inline-block; }
-  a.btn { background: #475569; color: #e0e0e0; }
-  button.danger { background: #b91c1c; margin: 0; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
-  .flash { padding: 0.6rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
-  .flash-ok { background: #14532d; }
-  .flash-error { background: #7f1d1d; }
-  .hint { color: #999; font-size: 0.85rem; }
+  :root {
+    --bg: #1a1a1a;
+    --card: #262626;
+    --line: #3a3a3a;
+    --fg: #e8e8e8;
+    --muted: #9a9a9a;
+    --accent: #3b82f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--fg);
+    max-width: 1040px; margin: 0 auto; padding: 2rem 1rem 4rem;
+    line-height: 1.5;
+  }
+
+  header { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1.25rem; }
+  h1 { font-size: 1.35rem; margin: 0; }
+  .count { color: var(--muted); font-size: 0.9rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 0.25rem; }
+
+  /* 表格:窄屏时横向滚动,不再撑破页面 */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.6rem 0.75rem; white-space: nowrap; }
+  th { background: #202020; color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+  tbody tr + tr td { border-top: 1px solid var(--line); }
+  td.ip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  td.collectors { white-space: normal; color: var(--muted); font-size: 0.85rem; }
+  td.actions { text-align: right; }
+
+  .badge {
+    display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+    font-size: 0.8rem; font-weight: 600; border: 1px solid transparent;
+  }
+  .badge-up      { color: #4ade80; background: #14532d55; border-color: #4ade8055; }
+  .badge-partial { color: #fbbf24; background: #78350f55; border-color: #fbbf2455; }
+  .badge-down    { color: #f87171; background: #7f1d1d55; border-color: #f8717155; }
+  .badge-unknown { color: var(--muted); background: #ffffff0d; border-color: var(--line); }
+
+  .hint { color: var(--muted); font-size: 0.83rem; margin: 0.5rem 0 0; }
+
+  form.card {
+    background: var(--card); border: 1px solid var(--line);
+    padding: 1.25rem; border-radius: 8px;
+  }
+  .field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .field > label { font-size: 0.85rem; color: var(--muted); }
+  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+  input[type=text], input[type=password], select {
+    width: 100%; padding: 0.45rem 0.55rem;
+    background: #141414; border: 1px solid #4a4a4a; color: var(--fg);
+    border-radius: 5px; font-size: 0.92rem; font-family: inherit;
+    /* 关键:让 input 和 select 高度严格一致,否则同一行里会高低不齐 */
+    height: 2.25rem;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[readonly] { background: #0e0e0e; color: var(--muted); cursor: not-allowed; }
+
+  details { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.85rem; }
+  summary { cursor: pointer; color: #8fbcd4; font-size: 0.88rem; }
+  summary::marker { color: var(--muted); }
+  .adv { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  /* 复选框统一样式:不再继承 input 的 width:100%/height */
+  .check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; cursor: pointer; }
+  .check input { width: auto; height: auto; margin: 0; accent-color: var(--accent); }
+  .checks { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+
+  /* 按钮:统一高度,不再出现「保存」比「取消」高一截 */
+  .actions-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 1.25rem; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 2.25rem; padding: 0 1rem; border: 1px solid transparent;
+    border-radius: 5px; font-size: 0.9rem; font-family: inherit;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-ghost   { background: transparent; color: var(--muted); border-color: var(--line); }
+  .btn-sm      { height: 1.75rem; padding: 0 0.7rem; font-size: 0.82rem; }
+  .btn-danger  { background: transparent; color: #f87171; border-color: #f8717166; }
+  .btn-danger:hover { background: #7f1d1d55; }
+
+  .flash { padding: 0.7rem 0.9rem; border-radius: 6px; margin-bottom: 0.75rem;
+           font-size: 0.9rem; border: 1px solid transparent; }
+  .flash-ok    { background: #14532d55; border-color: #4ade8055; }
+  .flash-error { background: #7f1d1d55; border-color: #f8717155; }
+
+  .empty { padding: 2rem; text-align: center; color: var(--muted); }
 </style>
 </head>
 <body>
-<h1>BMC 服务器管理</h1>
+
+<header>
+  <h1>BMC 服务器管理</h1>
+  <span class="count">{{ servers | length }} 台</span>
+</header>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}
@@ -41,95 +111,129 @@
   {% endfor %}
 {% endwith %}
 
-<table>
-  <tr>
-    <th>IP</th><th>状态</th><th>用户名</th><th>权限</th><th>driver</th><th>采集器</th><th></th>
-  </tr>
-  {% for s in servers %}
-  <tr>
-    <td>{{ s.ip }}</td>
-    <td class="status-{{ s.status }}">
-      {% if s.status == 'up' %}在线{% elif s.status == 'down' %}离线{% else %}未知{% endif %}
-    </td>
-    <td>{{ s.user }}</td>
-    <td>{{ s.privilege }}</td>
-    <td>{{ s.driver }}</td>
-    <td>{{ s.collectors | join(', ') }}</td>
-    <td style="white-space: nowrap;">
-      <a class="btn" href="{{ url_for('index', edit=s.ip) }}">编辑</a>
-      <form method="post" action="{{ url_for('delete_server', ip=s.ip) }}" onsubmit="return confirm('删除 {{ s.ip }}?\n将同时停止采集并清空它的历史数据。');" style="display:inline;">
-        <button type="submit" class="danger">删除</button>
-      </form>
-    </td>
-  </tr>
-  {% else %}
-  <tr><td colspan="7">还没有配置任何服务器</td></tr>
-  {% endfor %}
-</table>
-<p class="hint">状态说明:刚添加的服务器在 Prometheus 完成首次采集(最长 60 秒)前会显示「未知」。</p>
+{% if servers %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>IP</th><th>状态</th><th>用户名</th><th>权限</th><th>driver</th>
+        <th>采集器</th><th style="text-align:right;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in servers %}
+      <tr>
+        <td class="ip">{{ s.ip }}</td>
+        <td>
+          <span class="badge badge-{{ s.status }}">
+            {%- if s.status == 'up' -%}在线
+            {%- elif s.status == 'partial' -%}部分异常
+            {%- elif s.status == 'down' -%}失联
+            {%- else -%}未知{%- endif -%}
+          </span>
+        </td>
+        <td>{{ s.user }}</td>
+        <td>{{ s.privilege }}</td>
+        <td>{{ s.driver }}</td>
+        <td class="collectors">{{ s.collectors | join(', ') }}</td>
+        <td class="actions">
+          <a class="btn btn-sm btn-ghost" href="{{ url_for('index', edit=s.ip) }}">编辑</a>
+          <form method="post" action="{{ url_for('delete_server', ip=s.ip) }}"
+                onsubmit="return confirm('删除 {{ s.ip }}?\n将同时停止采集并清空它的历史数据。');"
+                style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-danger">删除</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="hint">
+  <strong>在线</strong> 全部采集器正常 ·
+  <strong>部分异常</strong> 能连上但个别采集器失败 ·
+  <strong>失联</strong> BMC 连不上(密码错 / 网络不通 / 超时) ·
+  <strong>未知</strong> 刚添加,还没完成首次采集(最长 60 秒)
+</p>
+{% else %}
+<div class="table-wrap"><div class="empty">还没有配置任何服务器 —— 用下面的表单加一台。</div></div>
+{% endif %}
 
-<h2 id="form">{% if editing %}编辑 {{ editing.ip }}{% else %}添加服务器{% endif %}</h2>
+<h2 style="margin-top:2rem;">{% if editing %}编辑 {{ editing.ip }}{% else %}添加服务器{% endif %}</h2>
+<p class="hint" style="margin-bottom:0.75rem;">
+  {% if editing %}IP 不可改。想换 IP 请删除后重新添加。{% else %}IP 已存在则视为更新,不存在则新增。{% endif %}
+</p>
+
 <form class="card" method="post" action="{{ url_for('add_or_update_server') }}">
-  <div class="row">
-    <div>
-      <label>BMC IP 地址</label>
-      <input type="text" name="ip" placeholder="10.0.0.100" required
+  <div class="grid">
+    <div class="field">
+      <label for="f-ip">BMC IP 地址</label>
+      <input id="f-ip" type="text" name="ip" placeholder="10.0.0.100" required
              value="{{ editing.ip if editing else '' }}" {% if editing %}readonly{% endif %}>
     </div>
-    <div>
-      <label>用户名</label>
-      <input type="text" name="user" required value="{{ editing.user if editing else '' }}">
+    <div class="field">
+      <label for="f-user">用户名</label>
+      <input id="f-user" type="text" name="user" required value="{{ editing.user if editing else '' }}">
     </div>
-    <div>
-      <label>密码</label>
-      <input type="password" name="password"
-             placeholder="{% if editing %}留空 = 不修改密码{% endif %}"
+    <div class="field">
+      <label for="f-pw">密码</label>
+      <input id="f-pw" type="password" name="password"
+             placeholder="{% if editing %}留空 = 不修改{% endif %}"
              {% if not editing %}required{% endif %}>
     </div>
   </div>
 
   <details {% if editing %}open{% endif %}>
-    <summary>高级选项(不确定就不用改,默认值是实测对大多数服务器有效的组合)</summary>
-    <div class="row">
-      <div>
-        <label>权限级别 (privilege)</label>
-        <select name="privilege">
-          {% for p in ['administrator', 'operator', 'user'] %}
-          <option value="{{ p }}" {% if (editing.privilege if editing else 'administrator') == p %}selected{% endif %}>{{ p }}</option>
+    <summary>高级选项 —— 默认值是实测对大多数机型有效的组合,不确定就别改</summary>
+    <div class="adv">
+      <div class="grid">
+        <div class="field">
+          <label for="f-priv">权限级别</label>
+          <select id="f-priv" name="privilege">
+            {% for p in ['administrator', 'operator', 'user'] %}
+            <option value="{{ p }}" {% if (editing.privilege if editing else 'administrator') == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-drv">driver</label>
+          <select id="f-drv" name="driver">
+            <option value="LAN_2_0" {% if (editing.driver if editing else 'LAN_2_0') == 'LAN_2_0' %}selected{% endif %}>LAN_2_0 (IPMI 2.0,大多数机型)</option>
+            <option value="LAN" {% if editing and editing.driver == 'LAN' %}selected{% endif %}>LAN (IPMI 1.5,老机型)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>兼容性</label>
+          <label class="check" style="height:2.25rem;">
+            <input type="checkbox" name="authcap" {% if (editing.authcap if editing else True) %}checked{% endif %}>
+            authcap 兼容模式
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>采集器</label>
+        <div class="checks">
+          {% for c in all_collectors %}
+          <label class="check">
+            <input type="checkbox" name="collectors" value="{{ c }}"
+                   {% if c in (editing.collectors if editing else default_collectors) %}checked{% endif %}>
+            {{ c }}
+          </label>
           {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label>driver</label>
-        <select name="driver">
-          <option value="LAN_2_0" {% if (editing.driver if editing else 'LAN_2_0') == 'LAN_2_0' %}selected{% endif %}>LAN_2_0 (IPMI 2.0,大多数机器)</option>
-          <option value="LAN" {% if editing and editing.driver == 'LAN' %}selected{% endif %}>LAN (IPMI 1.5,老机器)</option>
-        </select>
-      </div>
-      <div>
-        <label>兼容性</label>
-        <label style="font-weight:normal;">
-          <input type="checkbox" name="authcap" style="width:auto;"
-                 {% if (editing.authcap if editing else True) %}checked{% endif %}>
-          authcap 兼容模式(部分 BMC 需要,不确定就开着)
-        </label>
+        </div>
+        <p class="hint">
+          authcap:部分 BMC 上报的认证能力有 bug,不开会报 <code>username invalid</code>,不确定就开着。<br>
+          sel(事件日志)默认不开 —— 它最重,而 BMC 并发 session 槽位有限,开太多采集器容易间歇性失败。
+        </p>
       </div>
     </div>
-    <label>采集器</label>
-    <div class="collectors">
-      {% for c in all_collectors %}
-      <label>
-        <input type="checkbox" name="collectors" value="{{ c }}" style="width:auto;"
-               {% if c in (editing.collectors if editing else default_collectors) %}checked{% endif %}>
-        {{ c }}
-      </label>
-      {% endfor %}
-    </div>
-    <p class="hint">sel(事件日志)默认不开——它最重,而 BMC 的并发 session 槽位有限,开太多采集器容易间歇性采集失败。</p>
   </details>
 
-  <button type="submit">保存并测试</button>
-  {% if editing %}<a class="btn" href="{{ url_for('index') }}" style="margin-left:0.5rem;">取消编辑</a>{% endif %}
+  <div class="actions-row">
+    <button type="submit" class="btn btn-primary">保存并测试</button>
+    {% if editing %}<a class="btn btn-ghost" href="{{ url_for('index') }}">取消</a>{% endif %}
+  </div>
 </form>
 
 </body>

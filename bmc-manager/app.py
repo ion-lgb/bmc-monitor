@@ -297,31 +297,55 @@ def test_scrape(server: Server) -> dict:
     return {"ok": True, "message": f"采集正常,{len(up)} 个采集器全部在线: {', '.join(up)}"}
 
 
-def fetch_all_status() -> dict:
-    """一次查询拿到所有服务器的在线状态,返回 {ip: 'up'|'down'}。
-
-    以前是每台机器发一次 HTTP,10 台就是 10 次串行请求(最坏 10×5s),
-    页面打开时间随机器数线性增长。`max by (instance)` 让 Prometheus 在
-    服务端聚合,不管多少台都只有一次往返。
-    """
+def _query_instant(promql: str) -> dict:
+    """跑一条 PromQL,返回 {instance: 值(字符串)}。失败时返回空 dict。"""
     try:
         r = requests.get(
-            f"{PROMETHEUS_URL}/api/v1/query",
-            params={"query": f'max by (instance) (ipmi_up{{job="{PROMETHEUS_JOB}"}})'},
-            timeout=5,
+            f"{PROMETHEUS_URL}/api/v1/query", params={"query": promql}, timeout=5
         )
         r.raise_for_status()
         payload = r.json()
     except (requests.RequestException, ValueError) as e:
-        log.warning("查询 Prometheus 状态失败: %s", e)
+        log.warning("查询 Prometheus 失败 (%s): %s", promql, e)
         return {}
 
-    status = {}
+    out = {}
     for item in payload.get("data", {}).get("result", []):
         instance = item.get("metric", {}).get("instance")
-        value = item.get("value", [None, "0"])[1]
         if instance:
-            status[instance] = "up" if value == "1" else "down"
+            out[instance] = item.get("value", [None, None])[1]
+    return out
+
+
+def fetch_all_status() -> dict:
+    """一次性拿到所有服务器的状态,返回 {ip: 'up'|'partial'|'down'|'unknown'}。
+
+    要区分两种完全不同的失败,否则最该被看见的故障反而看不见:
+
+      * **失联**:BMC 压根连不上(密码错、网络不通、超时)。这种情况下
+        exporter 什么都返回不了,于是 `ipmi_up` 这个指标**根本不存在** ——
+        只看 ipmi_up 的话,这台机器会显示成"未知",和"刚添加还没采集"
+        混为一谈。所以必须看 Prometheus 内置的 `up`,它无论抓取成功失败
+        都必然存在。
+      * **部分异常**:能连上,但某几个采集器失败(常见于该 BMC 不支持
+        某个采集器,或 session 槽位被占满)。
+
+    两条查询是常数次往返,和机器数量无关。
+    """
+    reachable = _query_instant(f'up{{job="{PROMETHEUS_JOB}"}}')
+    collectors = _query_instant(f'min by (instance) (ipmi_up{{job="{PROMETHEUS_JOB}"}})')
+
+    status = {}
+    for ip, up in reachable.items():
+        if up != "1":
+            status[ip] = "down"
+        elif collectors.get(ip) == "1":
+            status[ip] = "up"
+        elif ip in collectors:
+            status[ip] = "partial"
+        else:
+            # 可达,但还没产生过 ipmi_* 指标 —— 通常是刚加进来还没抓第一轮
+            status[ip] = "unknown"
     return status
 
 
