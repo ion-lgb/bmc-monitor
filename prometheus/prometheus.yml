@@ -12,12 +12,15 @@ scrape_configs:
   # targets/bmc-targets.json 里(file_sd)。Prometheus 会自己监听这个文件的变化,
   # 加/删服务器不需要重启或 reload Prometheus。
   #
-  # 这批 BMC 的 IPMI session 表比较小,采集太频繁容易把 session 打满导致间歇性失败,
-  # 所以这个 job 单独放慢到 60s 一次,并给够 20s 的抓取超时。
+  # 采集频率的取舍:实测一台正常机器抓一轮约 1.1 秒(见 ipmi_scrape_duration_seconds),
+  # 15s 间隔的占空比不到 10%,不会把 BMC 的 session 表打满。
+  # 超时收到 10s:连不上的 BMC 早点失败,不要占着 session 拖慢别人 —— 之前 20s
+  # 超时会让一台失联的机器每轮都卡满 20 秒。
+  # 注意 scrape_timeout 必须 ≤ scrape_interval。
   - job_name: ipmi
     metrics_path: /ipmi
-    scrape_interval: 60s
-    scrape_timeout: 20s
+    scrape_interval: 15s
+    scrape_timeout: 10s
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/bmc-targets.json

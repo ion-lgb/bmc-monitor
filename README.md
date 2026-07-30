@@ -78,7 +78,16 @@ docker compose up -d --build
 | Grafana | http://<主机IP>:3000 | 看板(admin / `.env` 里的密码) |
 | Prometheus | http://<主机IP>:9090 | 排查采集问题 |
 
-打开 8080,填入 BMC 的 IP、IPMI 用户名和密码,保存。页面会立刻告诉你能不能采到数据。60 秒后 Grafana 上就有图了。
+打开 8080,填入 BMC 的 IP、IPMI 用户名和密码,保存。页面会立刻告诉你能不能采到数据,十几秒后 Grafana 上就有图了。
+
+### 把看板分享给同事
+
+Grafana 默认开了**匿名只读**:同事点开链接**不用登录**就能看,但改不了任何东西(Viewer 角色,
+增删改一律 403)。你自己要编辑时,从右上角登录 admin 即可。
+
+⚠️ 一定要把 `.env` 里的 `GRAFANA_ROOT_URL` 改成这台机器的真实地址。留着 `localhost`
+的话,「分享」按钮给出的链接是 `http://localhost:3000/...`,别人打开是空白;
+页面内部的跳转和资源也会指向 localhost,表现为**打开很久才出数据**。
 
 ## 架构
 
@@ -108,7 +117,7 @@ docker compose up -d --build
 这些是踩过坑之后固化下来的,改代码前值得看一眼:
 
 - **配置文件必须以「目录」挂进容器,不能挂单个文件。** bmc-manager 用「临时文件 + 原子替换」写配置(避免进程被 kill 时留下半截文件导致凭据全丢),而原子替换会产生新的 inode;Docker 的单文件 bind mount 绑的是 inode,替换后容器里看到的会永远是旧文件。
-- **BMC 的 IPMI session 槽位有限。** 采集器开太多、抓得太频繁,会把 session 表打满,表现为间歇性的 `command invalid or unsupported`。默认只开 `ipmi/dcmi/bmc/chassis` 四个(不开最重的 `sel`),抓取间隔 60s。
+- **BMC 的 IPMI session 槽位有限。** 采集器开太多、抓得太频繁,会把 session 表打满,表现为间歇性的 `command invalid or unsupported`。默认只开 `ipmi/dcmi/bmc/chassis` 四个(不开最重的 `sel`),抓取间隔 15s —— 实测一台正常机器抓一轮约 1.1 秒,占空比不到 10%,不会打满 session。`ipmi_scrape_duration_seconds` 可以看你自己机型的实际耗时,据此调整。
 - **不同厂商 BMC 差异很大。** 有的需要 `authcap` workaround(否则报 `username invalid`),有的只支持 IPMI 1.5(`driver: LAN`)。网页的「高级选项」里都能按机器单独调。
 - **`CPU_TJMAX` / `TControl` 不是实测温度**,是 CPU 出厂标定的参考常量(常年 97°C 左右)。看板里已从"最高温度"中排除,否则温度永远报警。
 - **机器关机后,大部分传感器会消失。** BMC 仍在线,但 CPU/GPU/风扇传感器不再上报,只剩待机的 PSU 进风温度和电池电压。看板对此做了空态处理,不会看起来像采集挂了。
@@ -131,7 +140,10 @@ docker compose up -d --build
 
 这套东西默认是**内网信任模型**,请不要直接暴露到公网:
 
-- bmc-manager **没有登录认证**。放到公网 = 任何人都能读到你的服务器清单、删除监控、清空历史数据。
+- Grafana(3000)是**匿名只读**,这是刻意的 —— 方便分享看板。但 bmc-manager(8080)和
+  Prometheus(9090)**没有任何认证,而且能改能删**。
+- bmc-manager 放到公网 = 任何人都能读到你的服务器清单、删除监控、清空历史数据。
+  **只把 3000 端口对外,8080/9090 务必限制在内网。**
 - Prometheus 开了 `--web.enable-admin-api`(为了实现"删除即清空历史"),这个接口能删任意历史数据,同样没有认证。
 - **BMC 密码在 `ipmi.yml` 里是明文** —— 这是 ipmi_exporter 的限制,它不支持从单独的文件读密码。程序会把这个文件的权限收紧到 `0600` 并 chown 给 exporter 的 uid(65534),宿主机上其他用户读不到;但 root 和容器内仍然能读。
 - `.env`、`ipmi.yml`、`bmc-targets.json` 都已在 `.gitignore` 里,**不要把它们提交上来**。

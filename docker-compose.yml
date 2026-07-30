@@ -79,6 +79,20 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      # 不设这个的话,「分享」出来的链接会是 http://localhost:3000/...,
+      # 别人打开是空白;而且页面里部分资源和跳转也会指向 localhost,
+      # 表现为"打开很久才出数据"。必须填这台机器在网络里的真实地址。
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL}
+      # 匿名只读:打开链接不用登录,但只能看不能改(Viewer 角色)。
+      # 管理员仍可从右上角登录进去编辑。
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_ALLOW_ORG_CREATE=false
+      # 匿名用户看不到版本号等无谓信息
+      - GF_AUTH_ANONYMOUS_HIDE_VERSION=true
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
