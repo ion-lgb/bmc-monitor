@@ -119,6 +119,8 @@ Grafana 默认开了**匿名只读**:同事点开链接**不用登录**就能看
 - **配置文件必须以「目录」挂进容器,不能挂单个文件。** bmc-manager 用「临时文件 + 原子替换」写配置(避免进程被 kill 时留下半截文件导致凭据全丢),而原子替换会产生新的 inode;Docker 的单文件 bind mount 绑的是 inode,替换后容器里看到的会永远是旧文件。
 - **BMC 的 IPMI session 槽位有限。** 采集器开太多、抓得太频繁,会把 session 表打满,表现为间歇性的 `command invalid or unsupported`。默认只开 `ipmi/dcmi/bmc/chassis` 四个(不开最重的 `sel`),抓取间隔 15s —— 实测一台正常机器抓一轮约 1.1 秒,占空比不到 10%,不会打满 session。`ipmi_scrape_duration_seconds` 可以看你自己机型的实际耗时,据此调整。
 - **不同厂商 BMC 差异很大。** 有的需要 `authcap` workaround(否则报 `username invalid`),有的只支持 IPMI 1.5(`driver: LAN`)。网页的「高级选项」里都能按机器单独调。
+- **数 CPU 个数不能只靠 `type="Processor"` 传感器。** 有的主板(实测超微)压根不上报这类传感器,整块板只有一个「机箱入侵」离散传感器。看板改为:先按 Processor 传感器数,数不到就退回按 `CPU1 Temp` / `CPU2 Temp` 这类温度探头数(正则做了锚定,不会把 `Vcpu1VRM Temp` 误算进去)。
+- **Grafana 的值映射不做 `{{label}}` 插值**,只有 `legendFormat` 会。想在 stat 面板里拼接标签值(比如「厂商 · 固件版本」),要写进 `legendFormat` 再把 `textMode` 设成 `name`。
 - **`CPU_TJMAX` / `TControl` 不是实测温度**,是 CPU 出厂标定的参考常量(常年 97°C 左右)。看板里已从"最高温度"中排除,否则温度永远报警。
 - **机器关机后,大部分传感器会消失。** BMC 仍在线,但 CPU/GPU/风扇传感器不再上报,只剩待机的 PSU 进风温度和电池电压。看板对此做了空态处理,不会看起来像采集挂了。
 - **进风温度取每台机器 inlet 传感器的最小值**,而不是平均值 —— `MB_Inlet` / `SW_Inlet` 这类机内探头比前面板热,取平均会算出负的 ΔT。
@@ -136,6 +138,7 @@ Grafana 默认开了**匿名只读**:同事点开链接**不用登录**就能看
 | PUE | ❌ 需要机房配电和制冷数据 | 接机房配电柜 / 精密空调 |
 | 内存条数 / 是否插满 | ❌ BMC 只上报插槽健康状态,空槽同样上报 | 装 `node_exporter` |
 | 部分机型的整机功耗 | ⚠️ 不是所有 BMC 都支持 DCMI 功耗读数 | 看机型;不支持就只能从 PDU 侧取 |
+| 机型 / 序列号 | ❌ 在 FRU 数据里,ipmi_exporter 不采集 FRU | `ipmitool fru` 手动查 |
 
 带内和带外是互补的,不是替代关系。
 

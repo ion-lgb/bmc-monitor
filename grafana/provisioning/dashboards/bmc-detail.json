@@ -257,7 +257,7 @@
     },
     {
       "type": "stat",
-      "title": "BMC 固件",
+      "title": "厂商 / BMC 固件",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -294,10 +294,11 @@
         {
           "expr": "ipmi_bmc_info{instance=\"$instance\"}",
           "instant": true,
-          "legendFormat": "v{{firmware_revision}}",
+          "legendFormat": "{{manufacturer_id}}  ·  BMC v{{firmware_revision}}",
           "refId": "A"
         }
-      ]
+      ],
+      "description": "IPMI 能读到的硬件信息只有这些。**机型和序列号读不到** —— 那些在 FRU 数据里,而 ipmi_exporter 不采集 FRU。\n厂商字段各家上报质量不一:有的给厂商全名,有的只给一个数字 ID。"
     },
     {
       "collapsed": false,
@@ -638,7 +639,7 @@
     {
       "type": "stat",
       "title": "CPU / 内存故障",
-      "description": "CPU 数量按 Processor 类传感器统计。\n内存故障 = 状态非 Normal 的内存插槽数(ECC 报警、预测性故障)。\n注:内存**容量**和**实际插了几条** IPMI 读不到 —— BMC 只上报插槽健康状态,空槽同样会上报,所以「插槽数」不等于「内存条数」,这里不再显示它。",
+      "description": "优先按 BMC 的 Processor 类传感器统计;有些主板(如超微)根本不上报这类传感器,就退回按 CPU 温度探头(CPU1 Temp / CPU2 Temp …)来数,两种机型都能算对。\n正则做了锚定,不会把 Vcpu1VRM Temp 这类 VRM 温度误算成 CPU。\n内存故障 = 状态非 Normal 的内存插槽数(ECC 报警、预测性故障)。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -714,7 +715,7 @@
       },
       "targets": [
         {
-          "expr": "count(ipmi_sensor_state{instance=\"$instance\", type=\"Processor\"}) or vector(0)",
+          "expr": "(count(ipmi_sensor_state{instance=\"$instance\", type=\"Processor\"}) or count(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i)^cpu[ _]?[0-9]+[ _]?temp$\"})) or vector(0)",
           "instant": true,
           "legendFormat": "CPU 数",
           "refId": "A"

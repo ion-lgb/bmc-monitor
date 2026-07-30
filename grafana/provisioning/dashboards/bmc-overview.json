@@ -605,7 +605,7 @@
     {
       "type": "stat",
       "title": "CPU 数量",
-      "description": "按 BMC 上报的 Processor 类传感器统计。\n注:内存**容量**和**实际插了几条**,IPMI 都读不到 —— BMC 只上报插槽健康状态,空槽同样会上报。要拿这些信息得在系统里跑 node_exporter。",
+      "description": "优先按 BMC 的 Processor 类传感器统计;有些主板(如超微)根本不上报这类传感器,就退回按 CPU 温度探头(CPU1 Temp / CPU2 Temp …)来数,两种机型都能算对。\n正则做了锚定,不会把 Vcpu1VRM Temp 这类 VRM 温度误算成 CPU。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -641,7 +641,7 @@
       },
       "targets": [
         {
-          "expr": "count(ipmi_sensor_state{type=\"Processor\"}) or vector(0)",
+          "expr": "sum((count by (instance) (ipmi_sensor_state{type=\"Processor\"}) or count by (instance) (ipmi_temperature_celsius{name=~\"(?i)^cpu[ _]?[0-9]+[ _]?temp$\"}))) or vector(0)",
           "instant": true,
           "refId": "A"
         }
