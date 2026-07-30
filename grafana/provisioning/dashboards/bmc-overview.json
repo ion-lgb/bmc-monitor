@@ -35,7 +35,7 @@
     },
     {
       "type": "stat",
-      "title": "在线服务器",
+      "title": "服务器总数",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -71,7 +71,7 @@
       },
       "targets": [
         {
-          "expr": "count(count by (instance) (ipmi_up))",
+          "expr": "count(up{job=\"ipmi\"})",
           "instant": true,
           "refId": "A"
         }
@@ -253,7 +253,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyCNY",
+          "unit": "prefix:¥",
           "decimals": 2,
           "noValue": "无数据",
           "color": {
@@ -299,13 +299,13 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
           "decimals": 2,
           "noValue": "无数据",
           "color": {
             "mode": "fixed",
             "fixedColor": "green"
-          }
+          },
+          "unit": "suffix: kg"
         },
         "overrides": [],
         "unit": "none"
@@ -383,7 +383,7 @@
     {
       "type": "stat",
       "title": "采集异常",
-      "description": "至少一个采集器抓不到数据的服务器台数。",
+      "description": "有问题的服务器台数:整台失联(BMC 不可达/超时),或虽能连上但部分采集器失败。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -431,7 +431,7 @@
       },
       "targets": [
         {
-          "expr": "count(count by (instance) (ipmi_up == 0)) or vector(0)",
+          "expr": "(count(up{job=\"ipmi\"} == 0) or vector(0)) + (count(count by (instance) (ipmi_up == 0)) or vector(0))",
           "instant": true,
           "refId": "A"
         }
@@ -706,7 +706,7 @@
     },
     {
       "type": "stat",
-      "title": "平均进风温度",
+      "title": "进风温度",
       "description": "每台机器取其最低的进风口读数(最接近冷通道实际温度),再跨机器求平均。机内的 MB/SW 进风探头会偏高,所以不取平均值而取最小值。",
       "datasource": null,
       "gridPos": {
@@ -767,7 +767,7 @@
     },
     {
       "type": "stat",
-      "title": "进出风温差 ΔT",
+      "title": "进出风温差",
       "description": "出风 − 进风。温差越大代表单位风量带走的热量越多;温差异常小可能是风量过剩(风扇能耗浪费),异常大则可能风量不足。",
       "datasource": null,
       "gridPos": {
@@ -797,8 +797,24 @@
           "decimals": 1,
           "noValue": "机型不支持",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 8
+              },
+              {
+                "color": "orange",
+                "value": 18
+              }
+            ]
           }
         },
         "overrides": []
@@ -965,7 +981,7 @@
       "description": "点「服务器」列的 IP 可跳转到该机器的详情看板。",
       "datasource": null,
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 24,
         "x": 0,
         "y": 19
@@ -975,7 +991,7 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "电源",
+            "displayName": "可达",
             "desc": false
           }
         ]
@@ -998,6 +1014,42 @@
           }
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Z"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "可达"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "失联",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "1": {
+                        "text": "可达",
+                        "color": "green",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -1052,6 +1104,10 @@
                     }
                   }
                 ]
+              },
+              {
+                "id": "noValue",
+                "value": "—"
               }
             ]
           },
@@ -1088,6 +1144,10 @@
                     }
                   }
                 ]
+              },
+              {
+                "id": "noValue",
+                "value": "—"
               }
             ]
           },
@@ -1378,7 +1438,9 @@
               "__name__ 6": true,
               "__name__ 7": true,
               "__name__ 8": true,
-              "__name__ 9": true
+              "__name__ 9": true,
+              "Time Z": true,
+              "job Z": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -1386,6 +1448,12 @@
         }
       ],
       "targets": [
+        {
+          "expr": "max by (instance) (up{job=\"ipmi\"})",
+          "format": "table",
+          "instant": true,
+          "refId": "Z"
+        },
         {
           "expr": "max by (instance) (ipmi_chassis_power_state)",
           "format": "table",
@@ -1450,7 +1518,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 26
       },
       "id": 103,
       "panels": []
@@ -1464,7 +1532,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 27
       },
       "id": 40,
       "options": {

@@ -113,11 +113,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value_and_name"
+        "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "percentunit",
           "noValue": "无数据",
           "color": {
             "mode": "thresholds"
@@ -130,11 +130,16 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
                 "color": "green",
                 "value": 1
               }
             ]
-          }
+          },
+          "decimals": 0
         },
         "overrides": []
       },
@@ -588,7 +593,7 @@
       "title": "GPU 温度趋势",
       "datasource": null,
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 8,
         "x": 16,
         "y": 15
@@ -661,7 +666,8 @@
           "unit": "none",
           "noValue": "0",
           "color": {
-            "mode": "thresholds"
+            "mode": "fixed",
+            "fixedColor": "blue"
           },
           "thresholds": {
             "mode": "absolute",
@@ -680,6 +686,12 @@
               "options": "故障"
             },
             "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
               {
                 "id": "thresholds",
                 "value": {
