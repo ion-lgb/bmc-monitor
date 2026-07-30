@@ -1,0 +1,90 @@
+networks:
+  monitoring:
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+services:
+  ipmi-exporter:
+    image: quay.io/prometheuscommunity/ipmi-exporter:v1.10.1
+    container_name: ipmi-exporter
+    restart: unless-stopped
+    command:
+      - --config.file=/config/ipmi.yml
+    volumes:
+      # 挂目录而不是挂单个文件:bmc-manager 用「临时文件 + 原子替换」的方式
+      # 更新配置,替换会产生新的 inode。Docker 的单文件 bind mount 绑的是
+      # inode,替换之后容器里看到的会永远是旧文件(这个坑踩过一次)。
+      - ./ipmi_exporter:/config:ro
+    ports:
+      - "9290:9290"
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:v3.13.1
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      # 开给 bmc-manager 用:删除服务器时能立刻把它的历史数据也物理清掉,
+      # 而不是只停止采集。这个接口没有认证,谁都能删任意历史数据,
+      # 只在"仅内网访问"的前提下开着才安全。
+      - --web.enable-admin-api
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    depends_on:
+      - ipmi-exporter
+
+  bmc-manager:
+    build: ./bmc-manager
+    container_name: bmc-manager
+    restart: unless-stopped
+    environment:
+      - IPMI_CONFIG_PATH=/config/ipmi.yml
+      - TARGETS_PATH=/targets/bmc-targets.json
+      - IPMI_EXPORTER_URL=http://ipmi-exporter:9290
+      - PROMETHEUS_URL=http://prometheus:9090
+    volumes:
+      # 同样挂目录:原子替换需要在目标文件所在目录里创建临时文件。
+      - ./ipmi_exporter:/config:rw
+      - ./prometheus/targets:/targets:rw
+    ports:
+      - "8080:8080"
+    networks:
+      - monitoring
+    depends_on:
+      - ipmi-exporter
+      - prometheus
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:13.1.1
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus

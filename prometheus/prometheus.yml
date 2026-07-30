@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Prometheus 自身
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # IPMI 多目标采集:目标列表由 bmc-manager 网页维护,写在
+  # targets/bmc-targets.json 里(file_sd)。Prometheus 会自己监听这个文件的变化,
+  # 加/删服务器不需要重启或 reload Prometheus。
+  #
+  # 这批 BMC 的 IPMI session 表比较小,采集太频繁容易把 session 打满导致间歇性失败,
+  # 所以这个 job 单独放慢到 60s 一次,并给够 20s 的抓取超时。
+  - job_name: ipmi
+    metrics_path: /ipmi
+    scrape_interval: 60s
+    scrape_timeout: 20s
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/bmc-targets.json
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [bmc_module]
+        target_label: __param_module
+      - target_label: __address__
+        replacement: ipmi-exporter:9290
+      # bmc_module 只是用来生成上面的 __param_module,不应该留成普通标签存进
+      # Prometheus(否则每次改配置、标签值一变,就会跟旧数据断成两条序列)。
+      - action: labeldrop
+        regex: bmc_module

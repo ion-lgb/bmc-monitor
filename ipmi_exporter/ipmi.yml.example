@@ -1,0 +1,3 @@
+# 复制为 ipmi.yml 即可启动。之后这个文件由 bmc-manager 网页自动维护,
+# 里面会存放各台 BMC 的明文账号密码,所以 ipmi.yml 已被 .gitignore 排除。
+modules: {}
