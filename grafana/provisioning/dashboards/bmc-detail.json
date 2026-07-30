@@ -637,8 +637,8 @@
     },
     {
       "type": "stat",
-      "title": "内存插槽 / 故障",
-      "description": "IPMI 只能读到内存插槽的健康状态,读不到容量(GB)—— 要容量需要在操作系统里跑 node_exporter。",
+      "title": "CPU / 内存故障",
+      "description": "CPU 数量按 Processor 类传感器统计。\n内存故障 = 状态非 Normal 的内存插槽数(ECC 报警、预测性故障)。\n注:内存**容量**和**实际插了几条** IPMI 读不到 —— BMC 只上报插槽健康状态,空槽同样会上报,所以「插槽数」不等于「内存条数」,这里不再显示它。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -683,7 +683,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "故障"
+              "options": "内存故障"
             },
             "properties": [
               {
@@ -714,15 +714,15 @@
       },
       "targets": [
         {
-          "expr": "count(ipmi_sensor_state{instance=\"$instance\", type=\"Memory\"}) or vector(0)",
+          "expr": "count(ipmi_sensor_state{instance=\"$instance\", type=\"Processor\"}) or vector(0)",
           "instant": true,
-          "legendFormat": "插槽",
+          "legendFormat": "CPU 数",
           "refId": "A"
         },
         {
           "expr": "count(ipmi_sensor_state{instance=\"$instance\", type=\"Memory\"} != 0) or vector(0)",
           "instant": true,
-          "legendFormat": "故障",
+          "legendFormat": "内存故障",
           "refId": "B"
         }
       ]

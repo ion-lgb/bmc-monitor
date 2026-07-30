@@ -137,7 +137,7 @@
     {
       "type": "stat",
       "title": "实时总功耗",
-      "description": "各机器 DCMI 上报的整机输入功率之和。",
+      "description": "各机器 DCMI 上报的整机输入功率之和。 部分机型不支持 DCMI,读不到功耗。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -164,7 +164,7 @@
         "defaults": {
           "unit": "watt",
           "decimals": 0,
-          "noValue": "无数据",
+          "noValue": "无功耗数据",
           "color": {
             "mode": "fixed",
             "fixedColor": "purple"
@@ -182,7 +182,7 @@
     {
       "type": "stat",
       "title": "耗电量",
-      "description": "所选时间范围内的累计用电量(按平均功率积分)。改时间选择器,这里跟着变。",
+      "description": "所选时间范围内的累计用电量。按「逐样本积分」计算,只统计真实采到数据的时间。\n删掉某台服务器后,它的历史数据会被清空,这里的数值也会相应减少,其他机器不受影响。\n注:部分机型的 BMC 不支持 DCMI 功耗读数,这类机器无法计入。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -209,7 +209,7 @@
         "defaults": {
           "unit": "kwatth",
           "decimals": 2,
-          "noValue": "无数据",
+          "noValue": "无功耗数据",
           "color": {
             "mode": "fixed",
             "fixedColor": "blue"
@@ -219,7 +219,7 @@
       },
       "targets": [
         {
-          "expr": "sum(avg_over_time(ipmi_dcmi_power_consumption_watts[$__range])) * $__range_s / 3600 / 1000",
+          "expr": "sum(sum_over_time(ipmi_dcmi_power_consumption_watts[$__range])) * $scrape_s / 3600 / 1000",
           "instant": true,
           "refId": "A"
         }
@@ -228,7 +228,7 @@
     {
       "type": "stat",
       "title": "电费估算",
-      "description": "耗电量 × 电价。电价可在上方「电价」输入框里改。",
+      "description": "耗电量 × 电价(电价见顶部输入框)。按「逐样本积分」计算,只统计真实采到数据的时间。\n删掉某台服务器后,它的历史数据会被清空,这里的数值也会相应减少,其他机器不受影响。\n注:部分机型的 BMC 不支持 DCMI 功耗读数,这类机器无法计入。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -255,7 +255,7 @@
         "defaults": {
           "unit": "prefix:¥",
           "decimals": 2,
-          "noValue": "无数据",
+          "noValue": "无功耗数据",
           "color": {
             "mode": "fixed",
             "fixedColor": "yellow"
@@ -265,7 +265,7 @@
       },
       "targets": [
         {
-          "expr": "sum(avg_over_time(ipmi_dcmi_power_consumption_watts[$__range])) * $__range_s / 3600 / 1000 * $price",
+          "expr": "sum(sum_over_time(ipmi_dcmi_power_consumption_watts[$__range])) * $scrape_s / 3600 / 1000 * $price",
           "instant": true,
           "refId": "A"
         }
@@ -274,7 +274,7 @@
     {
       "type": "stat",
       "title": "碳排放",
-      "description": "耗电量 × 电网排放因子。默认 0.5703 kgCO₂/kWh(中国全国电网平均值),可在上方输入框调整为你所在区域电网的因子。",
+      "description": "耗电量 × 电网排放因子。默认 0.5703 kgCO₂/kWh(中国全国电网平均值),可在顶部输入框改成你所在区域的因子。按「逐样本积分」计算,只统计真实采到数据的时间。\n删掉某台服务器后,它的历史数据会被清空,这里的数值也会相应减少,其他机器不受影响。\n注:部分机型的 BMC 不支持 DCMI 功耗读数,这类机器无法计入。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -300,7 +300,7 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 2,
-          "noValue": "无数据",
+          "noValue": "无功耗数据",
           "color": {
             "mode": "fixed",
             "fixedColor": "green"
@@ -312,7 +312,7 @@
       },
       "targets": [
         {
-          "expr": "sum(avg_over_time(ipmi_dcmi_power_consumption_watts[$__range])) * $__range_s / 3600 / 1000 * $carbon",
+          "expr": "sum(sum_over_time(ipmi_dcmi_power_consumption_watts[$__range])) * $scrape_s / 3600 / 1000 * $carbon",
           "instant": true,
           "legendFormat": "kgCO₂",
           "refId": "A"
@@ -604,8 +604,8 @@
     },
     {
       "type": "stat",
-      "title": "内存插槽",
-      "description": "BMC 监控到的内存插槽数量。IPMI 读不到内存容量(GB),要拿容量需要在系统内跑 node_exporter。",
+      "title": "CPU 数量",
+      "description": "按 BMC 上报的 Processor 类传感器统计。\n注:内存**容量**和**实际插了几条**,IPMI 都读不到 —— BMC 只上报插槽健康状态,空槽同样会上报。要拿这些信息得在系统里跑 node_exporter。",
       "datasource": null,
       "gridPos": {
         "h": 4,
@@ -641,7 +641,7 @@
       },
       "targets": [
         {
-          "expr": "count(ipmi_sensor_state{type=\"Memory\"}) or vector(0)",
+          "expr": "count(ipmi_sensor_state{type=\"Processor\"}) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -1736,6 +1736,27 @@
             "selected": true,
             "text": "0.5703",
             "value": "0.5703"
+          }
+        ],
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "type": "textbox",
+        "name": "scrape_s",
+        "label": "采集间隔 秒",
+        "description": "必须和 prometheus.yml 里 ipmi job 的 scrape_interval 一致,否则耗电量会算错。",
+        "query": "15",
+        "current": {
+          "selected": false,
+          "text": "15",
+          "value": "15"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "15",
+            "value": "15"
           }
         ],
         "hide": 0,
