@@ -142,6 +142,8 @@ services:
       # 别人打开是空白;而且页面里部分资源和跳转也会指向 localhost,
       # 表现为"打开很久才出数据"。必须填这台机器在网络里的真实地址。
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL}
+      # 必须与 root_url 域名一致,否则 enforce_domain 会把每个请求重定向成循环
+      - GF_SERVER_DOMAIN=s.662667.xyz
       # 匿名只读:打开链接不用登录,但只能看不能改(Viewer 角色)。
       # 管理员仍可从右上角登录进去编辑。
       - GF_AUTH_ANONYMOUS_ENABLED=true
