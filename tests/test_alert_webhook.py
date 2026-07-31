@@ -24,6 +24,10 @@ def test_build_message_firing():
     assert "CpuTemperatureHigh" in text
     assert "192.168.0.79" in text
     assert "warning" in text
+    # 消息必须带时间字段,且按容器本地时区格式化(YYYY-MM-DD HH:MM:SS)
+    import re
+
+    assert re.search(r"> 时间: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", text)
 
 
 def test_build_message_resolved():

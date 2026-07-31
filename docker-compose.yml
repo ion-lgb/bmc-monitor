@@ -10,6 +10,8 @@ services:
     image: quay.io/prometheuscommunity/ipmi-exporter:v1.10.1
     container_name: ipmi-exporter
     restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
     command:
       - --config.file=/config/ipmi.yml
     volumes:
@@ -26,6 +28,8 @@ services:
     image: quay.io/prometheus/alertmanager:v0.28.1
     container_name: alertmanager
     restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --log.level=info
@@ -40,6 +44,8 @@ services:
     image: prom/prometheus:v3.13.1
     container_name: prometheus
     restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -69,6 +75,7 @@ services:
       - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK:-}
       - DINGTALK_SECRET=${DINGTALK_SECRET:-}
       - WECHAT_WEBHOOK=${WECHAT_WEBHOOK:-}
+      - TZ=Asia/Shanghai
     ports:
       # 5001 只用于手动触发测试通知(/test),如不需要可去掉
       - "5001:5001"
@@ -84,6 +91,7 @@ services:
       - TARGETS_PATH=/targets/bmc-targets.json
       - IPMI_EXPORTER_URL=http://ipmi-exporter:9290
       - PROMETHEUS_URL=http://prometheus:9090
+      - TZ=Asia/Shanghai
     volumes:
       # 同样挂目录:原子替换需要在目标文件所在目录里创建临时文件。
       - ./ipmi_exporter:/config:rw
@@ -114,6 +122,7 @@ services:
       - SNMP_USER=${SNMP_USER}
       - SNMP_AUTH_PASS=${SNMP_AUTH_PASS}
       - SNMP_PRIV_PASS=${SNMP_PRIV_PASS}
+      - TZ=Asia/Shanghai
     volumes:
       - ./telegraf/esxi.conf:/etc/telegraf/telegraf.conf:ro
     ports:
@@ -128,6 +137,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - TZ=Asia/Shanghai
       # 不设这个的话,「分享」出来的链接会是 http://localhost:3000/...,
       # 别人打开是空白;而且页面里部分资源和跳转也会指向 localhost,
       # 表现为"打开很久才出数据"。必须填这台机器在网络里的真实地址。

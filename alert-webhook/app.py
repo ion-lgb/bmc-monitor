@@ -9,6 +9,7 @@ DINGTALK_WEBHOOK / WECHAT_WEBHOOK 转发。哪个配置了就发哪个,都没配
 """
 
 import base64
+from datetime import datetime
 import hashlib
 import hmac
 import json
@@ -96,6 +97,8 @@ def _build_message(alert) -> str:
     lines = [
         f"### {head}: {name}",
         f"> 状态: {status}",
+        # 显式展示北京时间:容器通过 TZ=Asia/Shanghai 设置本地时区
+        f"> 时间: {datetime.now():%Y-%m-%d %H:%M:%S}",
     ]
     if labels.get("instance"):
         lines.append(f"> 机器: {labels['instance']}")
