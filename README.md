@@ -185,6 +185,21 @@ docker run --rm --network host \
 - **虚拟机的客户机操作系统需要装并运行 VMware Tools。** 没装的会报 `E: tools not installed`,看板里的 Windows/Linux 分类就统计不到它。
 - SNMP 给的是**容量和状态**,不是性能明细。要单台虚拟机的 CPU ready、磁盘延迟这类,得换 Telegraf 的 `inputs.vsphere`(走 vSphere API,用 root 账号)。
 
+## 告警通知(可选)
+
+默认告警会进入 Alertmanager(http://<主机IP>:9093),但不推送到任何群。想在钉钉或企业微信群收到告警:
+
+1. 创建一个群机器人:
+   - **钉钉**:群设置 -> 机器人 -> 自定义,推荐「加签」方式(把密钥填到 `DINGTALK_SECRET`);
+   - **企业微信**:群 -> 右上角 -> 群机器人 -> 添加,推荐勾选「自定义关键词」并把关键词设为「告警」。
+2. 把 Webhook 地址填到 `.env` 里(`DINGTALK_WEBHOOK` / `WECHAT_WEBHOOK`,二选一或都填),然后:
+
+```bash
+docker compose up -d --build alert-webhook
+```
+
+内置告警规则在 `prometheus/rules/ipmi.yml`:BMC 失联、部分采集器失败、CPU/GPU 温度 > 90°C、风扇/电源/内存传感器异常。想调阈值或加规则,改这个文件后 `docker compose restart prometheus` 即可。
+
 ## 安全性
 
 这套东西默认是**内网信任模型**,请不要直接暴露到公网:

@@ -1,0 +1,12 @@
+route:
+  group_by: ["instance", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: webhook-relay
+
+receivers:
+  - name: webhook-relay
+    webhook_configs:
+      - url: "http://alert-webhook:5001/hook"
+        send_resolved: true

@@ -6,8 +6,10 @@ This repository is a Docker Compose stack for out-of-band BMC (IPMI) monitoring:
 
 ```text
 bmc-manager/                 Flask web UI for adding/removing servers
+alert-webhook/               Alertmanager -> DingTalk/WeCom webhook relay
+alertmanager/                Alertmanager config (alertmanager.yml)
 ipmi_exporter/               ipmi_exporter config (ipmi.yml, gitignored)
-prometheus/                  prometheus.yml + file_sd targets (JSON, gitignored)
+prometheus/                  prometheus.yml, rules/, file_sd targets (JSON, gitignored)
 grafana/provisioning/        Datasources and dashboards (JSON)
 telegraf/                    Optional ESXi SNMP collection
 docs/                        Screenshots used by the README

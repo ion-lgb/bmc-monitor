@@ -22,6 +22,20 @@ services:
     networks:
       - monitoring
 
+  alertmanager:
+    image: quay.io/prometheus/alertmanager:v0.28.1
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --log.level=info
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+    ports:
+      - "9093:9093"
+    networks:
+      - monitoring
+
   prometheus:
     image: prom/prometheus:v3.13.1
     container_name: prometheus
@@ -37,6 +51,7 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/targets:/etc/prometheus/targets:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -44,6 +59,18 @@ services:
       - monitoring
     depends_on:
       - ipmi-exporter
+      - alertmanager
+
+  alert-webhook:
+    build: ./alert-webhook
+    container_name: alert-webhook
+    restart: unless-stopped
+    environment:
+      - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK:-}
+      - DINGTALK_SECRET=${DINGTALK_SECRET:-}
+      - WECHAT_WEBHOOK=${WECHAT_WEBHOOK:-}
+    networks:
+      - monitoring
 
   bmc-manager:
     build: ./bmc-manager
