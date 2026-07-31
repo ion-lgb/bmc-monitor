@@ -536,7 +536,7 @@
       },
       "targets": [
         {
-          "expr": "count(ipmi_temperature_celsius{name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"}) or vector(0)",
+          "expr": "count(ipmi_temperature_celsius{name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"}) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -597,7 +597,7 @@
       },
       "targets": [
         {
-          "expr": "max(ipmi_temperature_celsius{name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"})",
+          "expr": "max(ipmi_temperature_celsius{name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"})",
           "refId": "A"
         }
       ]
@@ -641,7 +641,7 @@
       },
       "targets": [
         {
-          "expr": "sum((count by (instance) (ipmi_sensor_state{type=\"Processor\"}) or count by (instance) (ipmi_temperature_celsius{name=~\"(?i)^cpu[ _]?[0-9]+[ _]?temp$\"}))) or vector(0)",
+          "expr": "sum((count by (instance) (ipmi_sensor_state{type=\"Processor\", name=~\"(?i)^cpu[ _]?[0-9]+[ _]?(status|temp)$\"}) or count by (instance) (ipmi_temperature_celsius{name=~\"(?i)^cpu[ _]?[0-9]+[ _]?temp$\"}))) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -1485,13 +1485,13 @@
           "refId": "E"
         },
         {
-          "expr": "count by (instance) (ipmi_temperature_celsius{name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"})",
+          "expr": "count by (instance) (ipmi_temperature_celsius{name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"})",
           "format": "table",
           "instant": true,
           "refId": "F"
         },
         {
-          "expr": "max by (instance) (ipmi_temperature_celsius{name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"})",
+          "expr": "max by (instance) (ipmi_temperature_celsius{name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"})",
           "format": "table",
           "instant": true,
           "refId": "G"

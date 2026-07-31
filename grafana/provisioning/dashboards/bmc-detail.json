@@ -476,7 +476,7 @@
       },
       "targets": [
         {
-          "expr": "count(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"}) or vector(0)",
+          "expr": "count(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"}) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -582,7 +582,7 @@
       },
       "targets": [
         {
-          "expr": "sort_desc(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"})",
+          "expr": "sort_desc(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"})",
           "instant": true,
           "legendFormat": "{{name}}",
           "refId": "A"
@@ -630,7 +630,7 @@
       },
       "targets": [
         {
-          "expr": "ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i).*gpu.*\", name!~\"(?i).*max.*\"}",
+          "expr": "ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i).*gpu.*temp\", name!~\"(?i).*limit|.*tlimit|.*max|.*min.*\"}",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -715,7 +715,7 @@
       },
       "targets": [
         {
-          "expr": "(count(ipmi_sensor_state{instance=\"$instance\", type=\"Processor\"}) or count(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i)^cpu[ _]?[0-9]+[ _]?temp$\"})) or vector(0)",
+          "expr": "(count(ipmi_sensor_state{instance=\"$instance\", type=\"Processor\", name=~\"(?i)^cpu[ _]?[0-9]+[ _]?(status|temp)$\"}) or count(ipmi_temperature_celsius{instance=\"$instance\", name=~\"(?i)^cpu[ _]?[0-9]+[ _]?temp$\"})) or vector(0)",
           "instant": true,
           "legendFormat": "CPU 数",
           "refId": "A"
