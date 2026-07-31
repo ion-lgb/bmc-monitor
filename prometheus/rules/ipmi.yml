@@ -60,6 +60,24 @@ groups:
           summary: "电源传感器异常: {{ $labels.instance }} {{ $labels.name }}"
           description: "{{ $labels.instance }} 的电源传感器 {{ $labels.name }} 状态非正常。"
 
+      - alert: AlertWebhookDown
+        expr: up{job="alert-webhook"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "告警转发服务不可用"
+          description: "alert-webhook 已连续 2 分钟抓取失败,钉钉/企业微信通知将无法送达。"
+
+      - alert: AlertDeliveryFailed
+        expr: increase(alert_webhook_failed_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "群机器人推送失败"
+          description: "近 15 分钟内 alert-webhook 向群机器人推送失败,请检查 webhook 是否被禁用/失效。"
+
       - alert: MemorySensorCritical
         expr: ipmi_sensor_state{type="Memory"} != 0
         for: 3m

@@ -19,10 +19,21 @@ import urllib.parse
 
 import requests
 from flask import Flask, jsonify, request
+from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 log = logging.getLogger("alert-webhook")
 
 app = Flask(__name__)
+
+# --- 自身监控指标(Prometheus 抓 /metrics) ---
+SENT_TOTAL = Counter(
+    "alert_webhook_sent_total", "已成功推送到群机器人(按渠道)", ["channel"]
+)
+FAILED_TOTAL = Counter(
+    "alert_webhook_failed_total", "推送失败次数(按渠道)", ["channel"]
+)
+HOOK_REQUESTS = Counter("alert_webhook_hook_requests_total", "收到的 Alertmanager 告警条数")
+LAST_SENT_TS = Gauge("alert_webhook_last_sent_timestamp_seconds", "最近一次成功推送的时间戳")
 
 DINGTALK_URL = os.environ.get("DINGTALK_WEBHOOK", "").strip()
 DINGTALK_SECRET = os.environ.get("DINGTALK_SECRET", "").strip()
@@ -43,7 +54,8 @@ def _dingtalk_sign(url: str) -> str:
     return f"{url}{sep}timestamp={timestamp}&nonce={nonce}&sign={sign}"
 
 
-def _notify(url: str, payload: dict, label: str) -> None:
+def _notify(url: str, payload: dict, label: str) -> bool:
+    """推送到一个渠道。成功返回 True,失败返回 False(已经过 3 次重试)。"""
     last_err = None
     for attempt in range(1, 4):  # 3 次重试,1s/2s 退避
         try:
@@ -53,7 +65,9 @@ def _notify(url: str, payload: dict, label: str) -> None:
                 errcode = body.get("errcode", body.get("code", 0))
                 if errcode in (0, None) or errcode == 0:
                     log.info("%s 发送成功: %s", label, body)
-                    return
+                    SENT_TOTAL.labels(channel=label).inc()
+                    LAST_SENT_TS.set_to_current_time()
+                    return True
                 last_err = f"对方返回错误 {errcode}: {body}"
             else:
                 last_err = f"HTTP {r.status_code}: {r.text[:200]}"
@@ -61,6 +75,8 @@ def _notify(url: str, payload: dict, label: str) -> None:
             last_err = str(e)
         time.sleep(attempt)
     log.error("%s 发送失败(已重试 3 次): %s", label, last_err)
+    FAILED_TOTAL.labels(channel=label).inc()
+    return False
 
 
 def _escape_markdown(text: str) -> str:
@@ -102,21 +118,48 @@ def hook():
     text = "\n\n".join(_build_message(a) for a in alerts)
     text = text[:MAX_BYTES]
 
+    HOOK_REQUESTS.inc(len(alerts))
     sent = 0
     if DINGTALK_URL:
         url = _dingtalk_sign(DINGTALK_URL) if DINGTALK_SECRET else DINGTALK_URL
-        _notify(url, {"msgtype": "markdown", "markdown": {"title": "监控告警", "text": text}}, "钉钉")
-        sent += 1
+        ok = _notify(url, {"msgtype": "markdown", "markdown": {"title": "监控告警", "text": text}}, "钉钉")
+        sent += 1 if ok else 0
     if WECHAT_URL:
-        _notify(WECHAT_URL, {"msgtype": "markdown", "markdown": {"content": text}}, "企业微信")
-        sent += 1
-    log.info("收到 %d 条告警,配置的渠道数: %d", len(alerts), sent)
+        ok = _notify(WECHAT_URL, {"msgtype": "markdown", "markdown": {"content": text}}, "企业微信")
+        sent += 1 if ok else 0
+    log.info("收到 %d 条告警,成功推送 %d 个渠道", len(alerts), sent)
     return jsonify({"ok": True, "alerts": len(alerts), "channels": sent})
 
 
 @app.route("/healthz")
 def healthz():
     return {"ok": True}
+
+
+@app.route("/metrics")
+def metrics():
+    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+
+
+@app.route("/test", methods=["POST"])
+def send_test():
+    """手动发送一条测试通知,用于验证 webhook 是否还有效。"""
+    text = "\n\n".join([
+        "### 🧪 监控告警链路测试",
+        "> 状态: firing",
+        "> 这是一条手动触发的测试消息,收到说明告警通知配置正常。",
+        f"> 时间: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+    ])
+    results = {}
+    if DINGTALK_URL:
+        url = _dingtalk_sign(DINGTALK_URL) if DINGTALK_SECRET else DINGTALK_URL
+        results["钉钉"] = "ok" if _notify(url, {"msgtype": "markdown", "markdown": {"title": "测试告警", "text": text}}, "钉钉") else "failed"
+    if WECHAT_URL:
+        results["企业微信"] = "ok" if _notify(WECHAT_URL, {"msgtype": "markdown", "markdown": {"content": text}}, "企业微信") else "failed"
+    if not results:
+        return jsonify({"ok": False, "message": "没有配置任何 webhook(DINGTALK_WEBHOOK / WECHAT_WEBHOOK)"}), 400
+    all_ok = all(v == "ok" for v in results.values())
+    return jsonify({"ok": all_ok, "results": results})
 
 
 if __name__ == "__main__":

@@ -49,10 +49,17 @@ cd bmc-manager && pip install -r requirements.txt && python app.py
 
 ## Testing Guidelines
 
-No test suite exists yet. If you add one, place tests in
-`bmc-manager/tests/`, use pytest, and name files `test_*.py`. Verify manually
-with the run commands above, including the save-and-reload flow for server
-add/remove.
+Tests live in `tests/` (pytest). Run them locally with:
+
+```bash
+docker run --rm -v "$PWD":/repo -w /repo python:3.12-slim sh -c \
+  'pip install -q -r bmc-manager/requirements.txt -r alert-webhook/requirements.txt pytest && python -m pytest -q'
+```
+
+The suite covers relay message formatting/signing, bmc-manager config
+round-trips (IP validation, dual-file consistency), and repo-wide YAML/JSON
+parsing. GitHub Actions runs the same tests plus `promtool check rules` and
+`docker compose config` on every push/PR — keep the pipeline green.
 
 ## Commit & Pull Request Guidelines
 

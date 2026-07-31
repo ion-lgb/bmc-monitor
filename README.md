@@ -198,6 +198,14 @@ docker run --rm --network host \
 docker compose up -d --build alert-webhook
 ```
 
+改完配置想立刻验证有没有生效,发一条测试消息:
+
+```bash
+curl -X POST http://<主机IP>:5001/test
+```
+
+返回 `{"ok": true, "results": {"企业微信": "ok"}}` 就说明链路是通的。转发服务自身的运行状态(成功/失败次数、最后发送时间)由 Prometheus 抓取,对应告警规则 `AlertWebhookDown` / `AlertDeliveryFailed` 会在转发服务挂了或 webhook 失效时通知你。
+
 内置告警规则在 `prometheus/rules/ipmi.yml`:BMC 失联、部分采集器失败、CPU/GPU 温度 > 90°C、风扇/电源/内存传感器异常。想调阈值或加规则,改这个文件后 `docker compose restart prometheus` 即可。
 
 ## 安全性

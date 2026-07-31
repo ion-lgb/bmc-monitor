@@ -69,6 +69,9 @@ services:
       - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK:-}
       - DINGTALK_SECRET=${DINGTALK_SECRET:-}
       - WECHAT_WEBHOOK=${WECHAT_WEBHOOK:-}
+    ports:
+      # 5001 只用于手动触发测试通知(/test),如不需要可去掉
+      - "5001:5001"
     networks:
       - monitoring
 

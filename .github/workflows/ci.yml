@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run pytest (python:3.12-slim)
+        run: |
+          docker run --rm -v "$PWD":/repo -w /repo python:3.12-slim sh -c '
+            pip install --quiet -r bmc-manager/requirements.txt \
+                         -r alert-webhook/requirements.txt pytest &&
+            python -m pytest -q
+          '
+
+  config-validation:
+    name: Config validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Prometheus rules with promtool
+        run: |
+          docker run --rm --entrypoint /bin/promtool -v "$PWD":/repo -w /repo \
+            prom/prometheus:v3.13.1 check rules /repo/prometheus/rules/ipmi.yml
+
+      - name: Validate docker-compose.yml
+        run: |
+          docker compose -f docker-compose.yml config --quiet
