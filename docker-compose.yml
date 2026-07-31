@@ -77,8 +77,8 @@ services:
       - WECHAT_WEBHOOK=${WECHAT_WEBHOOK:-}
       - TZ=Asia/Shanghai
     ports:
-      # 5001 只用于手动触发测试通知(/test),如不需要可去掉
-      - "5001:5001"
+      # 5001 只用于手动触发测试通知(/test),仅绑定本机,公网不可达
+      - "127.0.0.1:5001:5001"
     networks:
       - monitoring
 
@@ -152,6 +152,16 @@ services:
       - GF_USERS_ALLOW_ORG_CREATE=false
       # 匿名用户看不到版本号等无谓信息
       - GF_AUTH_ANONYMOUS_HIDE_VERSION=true
+      # --- 公网反代加固 ---
+      # 关掉公网分享/快照/嵌入,避免匿名者把看板内容扩散出去
+      - GF_SNAPSHOTS_ENABLED=false
+      - GF_SECURITY_ALLOW_EMBEDDING=false
+      # 防止匿名者通过数据源代理拿 Prometheus 数据做恶意大查询
+      - GF_SERVER_ENFORCE_DOMAIN=true
+      # cookie 只在 HTTPS 下传输(前面 Nginx 终止 TLS),并限制同站
+      - GF_SERVER_COOKIE_SECURE=true
+      - GF_SERVER_COOKIE_SAMESITE=strict
+      - GF_SECURITY_CSRF_ALWAYS_CHECK=true
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

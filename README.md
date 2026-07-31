@@ -210,18 +210,15 @@ curl -X POST http://<主机IP>:5001/test
 
 ## 安全性
 
-这套东西默认是**内网信任模型**,请不要直接暴露到公网:
+这套东西默认是**内网信任模型**。公网访问的推荐姿势:**FRP 只映射 Grafana 的 3000 端口,外面再用 Nginx 域名反代 + SSL**。具体约束:
 
-- Grafana(3000)是**匿名只读**,这是刻意的 —— 方便分享看板。但 bmc-manager(8080)和
-  Prometheus(9090)**没有任何认证,而且能改能删**。
-- bmc-manager 放到公网 = 任何人都能读到你的服务器清单、删除监控、清空历史数据。
-  **只把 3000 端口对外,8080/9090 务必限制在内网。**
-- Prometheus 开了 `--web.enable-admin-api`(为了实现"删除即清空历史"),这个接口能删任意历史数据,同样没有认证。
-- **BMC 密码在 `ipmi.yml` 里是明文** —— 这是 ipmi_exporter 的限制,它不支持从单独的文件读密码。程序会把这个文件的权限收紧到 `0600` 并 chown 给 exporter 的 uid(65534),宿主机上其他用户读不到;但 root 和容器内仍然能读。
+- **只把 3000 端口通过 FRP 映射出去**,`bmc-manager`(8080)、`Prometheus`(9090)、`alertmanager`(9093)、`alert-webhook`(5001,已只绑本机)等一律留在内网 —— 它们没有认证,直接暴露 = 凭据和监控数据全部可读。
+- `GRAFANA_ROOT_URL` 必须填公网域名(如 `https://grafana.example.com`),否则分享链接和页面跳转会指向内网地址,公网打开是空白。
+- Grafana 保持**匿名只读**(Viewer 角色、禁止编辑/注册),并已关闭公网分享、快照、iframe 嵌入,启用 CSRF 校验与 HTTPS-only cookie。
+- Prometheus 的 `--web.enable-admin-api`(删除历史数据)当前**未开启**,如需"删除即清空历史"功能请自行评估公网风险。
+- **BMC 密码在 `ipmi.yml` 里是明文** —— 这是 ipmi_exporter 的限制。程序会把文件权限收紧到 `0600` 并 chown 给 exporter 的 uid(65534);但 root 和容器内仍然能读。
 - `.env`、`ipmi.yml`、`bmc-targets.json`、`.snmp-creds` 都已在 `.gitignore` 里,**不要把它们提交上来**。
-- ESXi 的 SNMP v3 用的是**独立生成的随机密码**,不复用 ESXi root 密码;SNMP v3 全程加密(SHA1 认证 + AES128 加密)。
-
-如果需要暴露到更大的范围,至少加一层反向代理 + 认证。
+- 如果 Nginx 层还想要更严格的控制,可以在反代上再加一层 Basic Auth 或 IP 白名单。
 
 ## 目录结构
 
